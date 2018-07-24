@@ -15,40 +15,39 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.util.concurrent.Executor
 
 class RedisProperties() {
-    lateinit var host:String
-    lateinit var port:String
-    lateinit var password:String
+    lateinit var host: String
+    lateinit var port: String
+    lateinit var password: String
 }
 
 @Configuration
 class RedisConfig {
 
     @Bean("myProperties")
-    @ConfigurationProperties(prefix="my.redis")
-    fun getRedisProperties():RedisProperties {
+    @ConfigurationProperties(prefix = "my.redis")
+    fun getRedisProperties(): RedisProperties {
         return RedisProperties()
     }
 
     @Bean("myExecutor")
     @ConfigurationProperties(prefix = "my.pool")
-    fun taskExecutor():Executor {
+    fun taskExecutor(): Executor {
         return ThreadPoolTaskExecutor()
     }
 
     @Bean("myConnectionFactory")
     fun redisConnectionFactory(@Qualifier("myProperties") redisProperties: RedisProperties): RedisConnectionFactory {
-        val redisStandaloneConfiguration = RedisStandaloneConfiguration(redisProperties.host, redisProperties.port.toInt())
-        redisStandaloneConfiguration.password = RedisPassword.of(redisProperties.password)
-        return  LettuceConnectionFactory(redisStandaloneConfiguration)
+        return LettuceConnectionFactory(RedisStandaloneConfiguration(redisProperties.host, redisProperties.port.toInt()).apply {
+            password = RedisPassword.of(redisProperties.password)
+        })
     }
 
     @Bean("myContainer")
-    fun redisContainer(@Qualifier("myConnectionFactory") redisConnectionFactory: RedisConnectionFactory, @Qualifier("myExecutor") executor : Executor): RedisMessageListenerContainer {
-        val container = RedisMessageListenerContainer()
-        container.setConnectionFactory(redisConnectionFactory)
-        container.addMessageListener(MessageListenerAdapter(RedisMessageSubscriber()), ChannelTopic("MSG"))
-        container.setTaskExecutor(executor)
-
-        return container
+    fun redisContainer(@Qualifier("myConnectionFactory") redisConnectionFactory: RedisConnectionFactory, @Qualifier("myExecutor") executor: Executor): RedisMessageListenerContainer {
+        return RedisMessageListenerContainer().apply {
+            setConnectionFactory(redisConnectionFactory)
+            addMessageListener(MessageListenerAdapter(RedisMessageSubscriber()), ChannelTopic("MSG"))
+            setTaskExecutor(executor)
+        }
     }
 }
